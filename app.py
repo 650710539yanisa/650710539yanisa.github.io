@@ -1,15 +1,123 @@
+# app.py
 from flask import Flask, render_template, request
 import tensorflow as tf
 import numpy as np
 from PIL import Image
 import io
+import os
 
+# ถ้าจะดาวน์โหลดจาก Google Drive
+try:
+    import gdown
+except ImportError:
+    gdown = None
+
+# ถ้าจะดึงไฟล์ลงมาอยู่ในโฟลเดอร์ 'models'
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+# หมายเหตุ: เปลี่ยน ID ให้ตรงกับไฟล์ของคุณ
+DRIVE_LINKS = {
+    "efficientnet": "https://drive.google.com/uc?id=1usl9QTnNFitQnfSzxOWIztDG-_-GSWGk",
+    "inception":   "https://drive.google.com/uc?id=17waZcwMXBRdSPlS6tEb8SenT-qcOLzMI",
+    "densenet":    "https://drive.google.com/uc?id=1dLdlUl2bH1tH20a-UW4ovvoJs2KEo2mO",
+}
+
+MODEL_FILES = {
+    "efficientnet": os.path.join(MODEL_DIR, "efficientnetb0_dr_model.h5"),
+    "inception":    os.path.join(MODEL_DIR, "inceptionv3_dr_model.h5"),
+    "densenet":     os.path.join(MODEL_DIR, "densenet121_dr_model.h5"),
+}
+
+def download_models():
+    if not gdown:
+        raise RuntimeError("Please install gdown: pip install gdown")
+    for name, url in DRIVE_LINKS.items():
+        out = MODEL_FILES[name]
+        if not os.path.exists(out):
+            print(f"📦 Downloading {name} model from Google Drive…")
+            gdown.download(url, out, quiet=False)
+        else:
+            print(f"✅ {name} model already downloaded.")
+
+# ---------- สร้างโมเดลแต่ละตัว ----------
+def build_efficientnet_model():
+    base_model = tf.keras.applications.EfficientNetB0(
+        weights='imagenet',
+        include_top=False,
+        input_shape=(224, 224, 3)
+    )
+    base_model.trainable = False
+
+    model = tf.keras.models.Sequential([
+        base_model,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(5, activation='softmax')
+    ])
+    return model
+
+def build_inception_model():
+    base_model = tf.keras.applications.InceptionV3(
+        weights='imagenet',
+        include_top=False,
+        input_shape=(224, 224, 3)
+    )
+    base_model.trainable = False
+
+    model = tf.keras.models.Sequential([
+        base_model,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(5, activation='softmax')
+    ])
+    return model
+
+def build_densenet_model():
+    base_model = tf.keras.applications.DenseNet121(
+        weights='imagenet',
+        include_top=False,
+        input_shape=(224, 224, 3)
+    )
+    base_model.trainable = False
+
+    model = tf.keras.models.Sequential([
+        base_model,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(5, activation='softmax')
+    ])
+    return model
+
+# ---------- โหลดโมเดลและ weight ----------
+download_models()
+
+efficientnet_model = build_efficientnet_model()
+efficientnet_model.load_weights(MODEL_FILES["efficientnet"])
+
+inception_model = build_inception_model()
+inception_model.load_weights(MODEL_FILES["inception"])
+
+densenet_model = build_densenet_model()
+densenet_model.load_weights(MODEL_FILES["densenet"])
+
+print("✅ All models loaded!")
+
+# ---------- preprocess ใช้กับทุกโมเดล (รูป 224x224, RGB, normalized) ----------
 from tensorflow.keras.applications.efficientnet import preprocess_input as eff_preprocess
-from tensorflow.keras.applications import EfficientNetB0, InceptionV3, DenseNet121
-from tensorflow.keras import layers
+
+def preprocess(img):
+    img = img.resize((224, 224))
+    img = img.convert("RGB")
+    x = np.array(img)
+    x = np.expand_dims(x, axis=0)
+    x = eff_preprocess(x)
+    return x
 
 from flask import session, redirect, url_for, flash
-
 
 app = Flask(__name__)
 
@@ -21,91 +129,9 @@ severity_labels = {
     4: "Proliferative DR"
 }
 
-# ---------- สร้างโมเดลแต่ละตัว ----------
-
-def build_efficientnet_model():
-    base_model = EfficientNetB0(
-        weights='imagenet',
-        include_top=False,
-        input_shape=(224, 224, 3)
-    )
-    base_model.trainable = False
-
-    model = tf.keras.models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(5, activation='softmax')
-    ])
-    return model
-
-
-def build_inception_model():
-    base_model = InceptionV3(
-        weights='imagenet',
-        include_top=False,
-        input_shape=(224, 224, 3)
-    )
-    base_model.trainable = False
-
-    model = tf.keras.models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(5, activation='softmax')
-    ])
-    return model
-
-
-def build_densenet_model():
-    base_model = DenseNet121(
-        weights='imagenet',
-        include_top=False,
-        input_shape=(224, 224, 3)
-    )
-    base_model.trainable = False
-
-    model = tf.keras.models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(5, activation='softmax')
-    ])
-    return model
-
-
-# ---------- โหลดโมเดลและ weight ----------
-
-efficientnet_model = build_efficientnet_model()
-efficientnet_model.load_weights(r"C:\DR_project\webapp\models\efficientnetb0_dr_modelsigmoid.h5")
-
-inception_model = build_inception_model()
-inception_model.load_weights(r"C:\DR_project\webapp\models\inceptionv3_dr_modelsigmoid.h5")
-
-densenet_model = build_densenet_model()
-densenet_model.load_weights(r"C:\DR_project\webapp\models\densenet121_dr_modelsigmoid.h5")
-
-print("✅ All models loaded!")
-
-
-# ---------- preprocess ใช้กับทุกโมเดล (รูป 224x224, RGB, normalized ด้วย efficientnet preprocess) ----------
-
-def preprocess(img):
-    img = img.resize((224, 224))
-    img = img.convert("RGB")
-    x = np.array(img)
-    x = np.expand_dims(x, axis=0)
-    x = eff_preprocess(x)
-    return x
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -114,14 +140,13 @@ def predict():
     x = preprocess(img)
 
     severity_colors = {
-        0: "#4CAF50",   # No DR
-        1: "#FFEB3B",   # Mild
-        2: "#FFC107",   # Moderate
-        3: "#FF5722",   # Severe
-        4: "#F44336",   # Proliferative DR
+        0: "#4CAF50",
+        1: "#FFEB3B",
+        2: "#FFC107",
+        3: "#FF5722",
+        4: "#F44336",
     }
 
-    # ---------- รันทั้ง 3 โมเดล ----------
     models_info = [
         ("EfficientNetB0", efficientnet_model),
         ("InceptionV3", inception_model),
@@ -130,10 +155,9 @@ def predict():
 
     rows_html = ""
     for model_name, mdl in models_info:
-        pred = mdl.predict(x)[0]  # shape (5,)
+        pred = mdl.predict(x)[0]
         pred_class = int(np.argmax(pred))
         confidence = float(np.max(pred))
-
         color = severity_colors[pred_class]
         severity_text = severity_labels[pred_class]
 
@@ -151,7 +175,6 @@ def predict():
         </tr>
         """
 
-    # ---------- สร้าง HTML ตารางไม่มี header / ไม่มีเส้น ----------
     result_html = f"""
     <table style="
         width:100%; 
@@ -165,7 +188,6 @@ def predict():
     """
 
     return {"result_html": result_html}
-
 
 if __name__ == "__main__":
     app.run(debug=True)
