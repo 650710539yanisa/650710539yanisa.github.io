@@ -164,7 +164,7 @@ def predict():
     rows_html = ""
     for model_name, mdl in models_info:
         x_pre = preprocess(img, model_name.lower())
-        pred = mdl.predict(x)[0]
+        pred = mdl.predict(x_pre)[0]
         pred_class = int(np.argmax(pred))
         confidence = float(np.max(pred))
         color = severity_colors[pred_class]
@@ -200,5 +200,6 @@ def predict():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
