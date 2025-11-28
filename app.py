@@ -108,13 +108,21 @@ print("✅ All models loaded!")
 
 # ---------- preprocess ใช้กับทุกโมเดล (รูป 224x224, RGB, normalized) ----------
 from tensorflow.keras.applications.efficientnet import preprocess_input as eff_preprocess
+from tensorflow.keras.applications.inception_v3 import preprocess_input as inc_preprocess
+from tensorflow.keras.applications.densenet import preprocess_input as den_preprocess
 
-def preprocess(img):
+def preprocess(img, model_name="efficientnet"):
     img = img.resize((224, 224))
     img = img.convert("RGB")
     x = np.array(img)
     x = np.expand_dims(x, axis=0)
-    x = eff_preprocess(x)
+
+    if model_name == "efficientnet":
+        x = eff_preprocess(x)
+    elif model_name == "inception":
+        x = inc_preprocess(x)
+    elif model_name == "densenet":
+        x = den_preprocess(x)
     return x
 
 from flask import session, redirect, url_for, flash
@@ -191,3 +199,4 @@ def predict():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
