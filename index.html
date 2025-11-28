@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Diabetic Retinopathy Risk Prediction System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<h1 class="header-title">
+    <span class="eye-icon">👁️</span>
+    Diabetic Retinopathy Risk Prediction System
+</h1>
+
+<div class="container">
+
+    <!-- LEFT SIDE: UPLOAD SECTION -->
+    <div class="left-box">
+
+        <h2 class="section-title">Upload Retinal Image</h2>
+
+        <label class="upload-area">
+            <input type="file" id="img" accept="image/*" hidden>
+            <p class="upload-text">Drag and drop or click to select a file (jpg/png) — Maximum size 6MB</p>
+            <p class="upload-sub">High-quality images (non-blurry) provide more accurate results</p>
+        </label>
+
+
+        <div id="preview-container" class="preview-container" style="display: none;">
+            <h3 class="preview-title">Preview</h3>
+            <img id="preview" class="preview-img" src="">
+        </div>
+
+        <div class="button-row">
+            <button class="btn predict-btn" onclick="sendImage()">Predict</button>
+            <button class="btn clear-btn" onclick="clearImage()">Clear</button>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE: RESULTS -->
+    <div class="right-box">
+        <!-- แถวหัวข้อ Result + Confidence อยู่คู่กัน -->
+        <div class="result-header-row">
+            <h2 class="section-title">Result</h2>
+            <h2 class="section-title">Confidence</h2>
+        </div>
+
+        <!-- พื้นที่สำหรับแสดงผลลัพธ์จาก model -->
+        <div id="result" class="result-box">
+            No results yet — Upload an image and click “Predict”
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/script.js"></script>
+
+</body>
+</html>
