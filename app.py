@@ -198,8 +198,12 @@ def predict():
 
     return {"result_html": result_html}
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# if __name__ == "__main__":
+#     app.run(debug=True)
+except Exception as e:
+        print("❌ Prediction error:", e)  # ดู error จริงใน terminal
+        return {"error": str(e)}
+
 
 
 
